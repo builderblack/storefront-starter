@@ -44,10 +44,19 @@ export function getBrowserStorefront() {
     throw new Error('NEXT_PUBLIC_BB_TENANT_SLUG is not set.');
   }
 
-  // Read the cart session UUID we persisted on the previous visit.
+  // Read — or lazily generate — the per-browser cart session UUID. The API keys
+  // a guest cart on this `X-Cart-Session` id and does NOT mint one for you, so
+  // it must be a stable, client-generated value sent on the FIRST cart write.
   let cartSessionId: string | undefined;
   if (typeof window !== 'undefined') {
     cartSessionId = window.localStorage.getItem('bb_cart_session') ?? undefined;
+    if (!cartSessionId) {
+      cartSessionId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `cs_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      window.localStorage.setItem('bb_cart_session', cartSessionId);
+    }
   }
 
   return createStorefrontClient({ apiUrl, tenantSlug, cartSessionId });
